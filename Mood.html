@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moodboard Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #f0ede6;
+      --muted: #6b6b6b;
+      --accent: #c8b89a;
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-mono);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    .noise {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 128px;
+    }
+
+    header {
+      padding: 3rem 4rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 2rem;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+
+    .tagline {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-style: italic;
+      letter-spacing: 0.06em;
+    }
+
+    main {
+      flex: 1;
+      padding: 3rem 4rem;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .input-zone {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      padding: 0.75rem 0;
+      outline: none;
+      transition: border-color 0.3s;
+      letter-spacing: 0.02em;
+    }
+
+    input::placeholder { color: var(--muted); }
+    input:focus { border-bottom-color: var(--accent); }
+
+    button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      padding: 0.6rem 1.5rem;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    button:hover { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .board { display: grid; gap: 1.5rem; }
+
+    .empty-state {
+      border: 1px dashed var(--border);
+      padding: 5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.8rem;
+      letter-spacing: 0.1em;
+    }
+
+    .palette-row {
+      display: flex;
+      height: 100px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .swatch {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0.5rem;
+      cursor: pointer;
+      transition: flex 0.3s ease;
+    }
+
+    .swatch:hover { flex: 2; }
+
+    .swatch-name {
+      font-size: 0.6rem;
+      letter-spacing: 0.06em;
+      opacity: 0;
+      transition: opacity 0.2s;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .swatch:hover .swatch-name { opacity: 1; }
+
+    .swatch-hex {
+      font-size: 0.65rem;
+      letter-spacing: 0.05em;
+      font-family: var(--font-mono);
+      opacity: 0.7;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      background: var(--surface);
+    }
+
+    .card-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 400;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+    }
+
+    .card-body {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .keywords-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .keyword {
+      border: 1px solid var(--border);
+      padding: 0.3rem 0.9rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+
+    .keyword:hover { border-color: var(--accent); color: var(--accent); }
+
+    .font-preview {
+      border: 1px solid var(--border);
+      padding: 2rem;
+      background: var(--surface);
+    }
+
+    .font-preview-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+
+    .font-preview-display {
+      font-family: var(--font-display);
+      font-size: clamp(2.5rem, 6vw, 5rem);
+      line-height: 1.1;
+      font-weight: 700;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .font-preview-italic {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--accent);
+      margin-top: 0.75rem;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--accent);
+      color: var(--bg);
+      padding: 0.5rem 1.2rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      transition: transform 0.3s ease;
+      pointer-events: none;
+      z-index: 9999;
+      font-family: var(--font-mono);
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    footer {
+      padding: 1.5rem 4rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.65rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .anim { animation: fadeUp 0.5s ease forwards; opacity: 0; }
+    .anim1 { animation-delay: 0s; }
+    .anim2 { animation-delay: 0.1s; }
+    .anim3 { animation-delay: 0.2s; }
+    .anim4 { animation-delay: 0.3s; }
+
+    @media (max-width: 700px) {
+      header, main, footer { padding-left: 1.5rem; padding-right: 1.5rem; }
+      header { flex-direction: column; gap: 0.5rem; }
+      .input-zone { flex-direction: column; }
+      button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="noise"></div>
+
+  <header>
+    <div class="logo">✦ moodboard</div>
+    <p class="tagline">type a vibe. get a world.</p>
+  </header>
+
+  <main>
+    <section class="input-zone">
+      <input
+        id="vibeInput"
+        type="text"
+        placeholder="e.g. rainy tokyo cafe, desert sunset, 90s nostalgia..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button id="generateBtn">Generate →</button>
+    </section>
+
+    <section class="board" id="board" aria-live="polite">
+      <div class="empty-state" id="emptyState">
+        <span>Your moodboard will appear here</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>built with vanilla js · no dependencies</span>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const VIBES = {
+      "rainy tokyo cafe": {
+        palette: [
+          { hex: "#1C1F2E", name: "midnight ink" },
+          { hex: "#2E3A52", name: "rainy dusk" },
+          { hex: "#4F6880", name: "wet concrete" },
+          { hex: "#8BA8B5", name: "foggy glass" },
+          { hex: "#C7D8D3", name: "steam curl" },
+        ],
+        mood: "Melancholic & Intimate",
+        description: "The hiss of an espresso machine. Neon signs bleeding through rain-streaked glass. Time slows down here.",
+        keywords: ["lo-fi", "ambient", "solitude", "neon reflection", "ceramic cups", "late hours", "jazz undertone", "wabi-sabi", "rain on glass"],
+        fontMood: "Understated serif, tight tracking",
+      },
+      "desert sunset": {
+        palette: [
+          { hex: "#1A0A00", name: "dusk shadow" },
+          { hex: "#6B2D0F", name: "burnt sienna" },
+          { hex: "#C4541A", name: "ember glow" },
+          { hex: "#E8934A", name: "ochre horizon" },
+          { hex: "#F5D07A", name: "golden hour" },
+        ],
+        mood: "Expansive & Raw",
+        description: "Silence that has weight. The sky becomes a painting for twenty minutes, then it's gone.",
+        keywords: ["vast", "terracotta", "ancient", "heat shimmer", "sacred geometry", "dust", "solstice", "canyon red", "nomadic"],
+        fontMood: "Wide, weathered letterforms",
+      },
+      "90s nostalgia": {
+        palette: [
+          { hex: "#FF6B9D", name: "bubblegum" },
+          { hex: "#C966FF", name: "grape soda" },
+          { hex: "#45E0FF", name: "aqua dream" },
+          { hex: "#FFE94A", name: "highlighter" },
+          { hex: "#FF9500", name: "cheese puff" },
+        ],
+        mood: "Chaotic & Joyful",
+        description: "Saturday morning cartoons. Lisa Frank folders. The smell of a video rental store.",
+        keywords: ["retro", "maximalist", "scrunchie", "cassette tape", "pixel art", "neon", "chunky", "bold", "playful"],
+        fontMood: "Bold, geometric, all-caps energy",
+      },
+      "deep sea": {
+        palette: [
+          { hex: "#000A14", name: "abyss" },
+          { hex: "#001E3C", name: "midnight water" },
+          { hex: "#003A6E", name: "deep current" },
+          { hex: "#0066B2", name: "bioluminescent" },
+          { hex: "#00C4CC", name: "phosphorescent" },
+        ],
+        mood: "Mysterious & Ancient",
+        description: "Pressure you can feel. Creatures that make their own light. A world without sun.",
+        keywords: ["bioluminescence", "vast", "pressure", "ancient", "unknown", "tidal", "abyssal", "ethereal", "alien"],
+        fontMood: "Thin, flowing, organic curves",
+      },
+      "cottage core": {
+        palette: [
+          { hex: "#F5EDD6", name: "parchment" },
+          { hex: "#D4C5A9", name: "linen" },
+          { hex: "#A8C5A0", name: "sage" },
+          { hex: "#7B9E74", name: "herb garden" },
+          { hex: "#5C4033", name: "bark" },
+        ],
+        mood: "Gentle & Grounded",
+        description: "Bread rising on the windowsill. Dried lavender. The sound of rain on a tin roof.",
+        keywords: ["handmade", "linen", "forage", "slow living", "botanical", "wildflower", "wicker", "dried herbs", "candlelight"],
+        fontMood: "Soft, handwritten, friendly weight",
+      },
+      "brutalist architecture": {
+        palette: [
+          { hex: "#1C1C1C", name: "carbon" },
+          { hex: "#3A3A3A", name: "exposed concrete" },
+          { hex: "#6E6E6E", name: "raw aggregate" },
+          { hex: "#A8A8A8", name: "weathered stone" },
+          { hex: "#E8E8E0", name: "bone white" },
+        ],
+        mood: "Severe & Honest",
+        description: "Nothing hidden. Form follows function, then function becomes the beauty.",
+        keywords: ["raw", "monolithic", "honest", "structural", "geometric", "imposing", "utilitarian", "soviet", "formalist"],
+        fontMood: "Heavy grotesque, zero decoration",
+      },
+      "cherry blossom": {
+        palette: [
+          { hex: "#FDF6F0", name: "rice paper" },
+          { hex: "#F9D5E5", name: "petal blush" },
+          { hex: "#E8A0BF", name: "sakura flush" },
+          { hex: "#C97DA0", name: "deep blossom" },
+          { hex: "#5C3D5B", name: "twilight plum" },
+        ],
+        mood: "Fleeting & Beautiful",
+        description: "Mono no aware — the bittersweet awareness that everything passes. Two weeks and then it's gone.",
+        keywords: ["ephemeral", "delicate", "hanami", "transient", "soft", "floral", "spring", "japanese", "impermanent"],
+        fontMood: "Light-weight, high contrast, refined",
+      },
+      "industrial warehouse": {
+        palette: [
+          { hex: "#111111", name: "soot" },
+          { hex: "#2B2B2B", name: "iron" },
+          { hex: "#8B4513", name: "rust bloom" },
+          { hex: "#D4A017", name: "hazard yellow" },
+          { hex: "#F0F0EC", name: "fluorescent spill" },
+        ],
+        mood: "Gritty & Authentic",
+        description: "Exposed pipes. Repurposed space. Coffee shops that used to be steel mills.",
+        keywords: ["exposed", "reclaimed", "patina", "urban", "raw edge", "metal", "worn", "factory", "repurposed"],
+        fontMood: "Stencil, bold, industrial sans",
+      },
+    };
+
+    function hashCode(str) {
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = (Math.imul(31, hash) + str.charCodeAt(i)) | 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function seededRandom(seed) {
+      let s = seed;
+      return () => {
+        s = (s * 1664525 + 1013904223) & 0xffffffff;
+        return (s >>> 0) / 0xffffffff;
+      };
+    }
+
+    function hsl(h, s, l) {
+      h = ((h % 360) + 360) % 360;
+      s = Math.min(100, Math.max(0, s));
+      l = Math.min(95, Math.max(5, l));
+      const a = (s * Math.min(l, 100 - l)) / 100;
+      const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color / 100).toString(16).padStart(2, "0");
+      };
+      return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    function getLightness(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+
+    function shuffleSeeded(arr, rng) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(rng() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function generateFromScratch(input) {
+      const seed = hashCode(input);
+      const rng = seededRandom(seed);
+      const baseHue = Math.floor(rng() * 360);
+      const palette = [
+        { hex: hsl(baseHue, 15 + rng() * 10, 10 + rng() * 5), name: "tone 1" },
+        { hex: hsl(baseHue + 10, 30 + rng() * 20, 25 + rng() * 10), name: "tone 2" },
+        { hex: hsl(baseHue + 20, 50 + rng() * 20, 45 + rng() * 10), name: "tone 3" },
+        { hex: hsl(baseHue + 180, 40 + rng() * 20, 60 + rng() * 10), name: "tone 4" },
+        { hex: hsl(baseHue + 200, 20 + rng() * 20, 80 + rng() * 10), name: "tone 5" },
+      ];
+      const moods = ["Dreamy & Soft", "Bold & Vivid", "Quiet & Steady", "Electric & Raw", "Warm & Layered", "Cool & Distant"];
+      const pool = ["textured", "layered", "ambient", "hazy", "intimate", "muted", "spacious", "grounded", "electric", "sharp", "focused", "bold", "clean", "direct", "vivid", "precise"];
+      const keywords = shuffleSeeded([...pool], rng).slice(0, 6);
+      keywords.push(input.split(" ")[0] || "custom");
+      return {
+        palette,
+        mood: moods[Math.floor(rng() * moods.length)],
+        description: `A custom vibe built from "${input}". Let the palette speak for itself.`,
+        keywords,
+        fontMood: "Chosen by contrast and clarity",
+      };
+    }
+
+    function findBestMatch(input) {
+      const q = input.toLowerCase().trim();
+      if (VIBES[q]) return VIBES[q];
+      for (const key of Object.keys(VIBES)) {
+        const words = key.split(" ");
+        if (words.some(w => q.includes(w) || q.split(" ").some(qw => w.includes(qw)))) {
+          return VIBES[key];
+        }
+      }
+      return generateFromScratch(q);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2000);
+    }
+
+    function render(query, data) {
+      const board = document.getElementById("board");
+
+      const paletteEl = document.createElement("div");
+      paletteEl.className = "palette-row anim anim1";
+      data.palette.forEach(({ hex, name }) => {
+        const swatch = document.createElement("div");
+        swatch.className = "swatch";
+        swatch.style.background = hex;
+        swatch.title = `${name} · ${hex}`;
+        const textColor = getLightness(hex) > 140 ? "#111" : "#f0ede6";
+        swatch.innerHTML = `
+          <span class="swatch-name" style="color:${textColor}">${name}</span>
+          <span class="swatch-hex" style="color:${textColor}">${hex}</span>
+        `;
+        swatch.addEventListener("click", () => {
+          navigator.clipboard.writeText(hex).then(() => showToast(`Copied ${hex}`));
+        });
+        paletteEl.appendChild(swatch);
+      });
+
+      const infoGrid = document.createElement("div");
+      infoGrid.className = "info-grid anim anim2";
+      infoGrid.innerHTML = `
+        <div class="card">
+          <div class="card-label">mood</div>
+          <div class="card-title">${data.mood}</div>
+          <div class="card-body">${data.description}</div>
+        </div>
+        <div class="card">
+          <div class="card-label">typography direction</div>
+          <div class="card-title" style="font-size:1rem; margin-bottom:0.25rem">${data.fontMood}</div>
+          <div class="card-body" style="margin-top:1rem">
+            ${data.palette.slice(0, 3).map(c =>
+              `<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.35rem">
+                <div style="width:10px;height:10px;border-radius:50%;background:${c.hex};flex-shrink:0"></div>
+                <span>${c.name} <span style="opacity:0.5">${c.hex}</span></span>
+              </div>`
+            ).join("")}
+          </div>
+        </div>
+      `;
+
+      const keywordsRow = document.createElement("div");
+      keywordsRow.className = "keywords-row anim anim3";
+      data.keywords.forEach(kw => {
+        const tag = document.createElement("div");
+        tag.className = "keyword";
+        tag.textContent = kw;
+        keywordsRow.appendChild(tag);
+      });
+
+      const fontPreview = document.createElement("div");
+      fontPreview.className = "font-preview anim anim4";
+      fontPreview.innerHTML = `
+        <div class="font-preview-label">type feel · Playfair Display</div>
+        <div class="font-preview-display">${query.charAt(0).toUpperCase() + query.slice(1)}</div>
+        <div class="font-preview-italic">${data.mood}</div>
+      `;
+
+      board.innerHTML = "";
+      board.appendChild(paletteEl);
+      board.appendChild(infoGrid);
+      board.appendChild(keywordsRow);
+      board.appendChild(fontPreview);
+    }
+
+    function generate() {
+      const input = document.getElementById("vibeInput").value.trim();
+      if (!input) return;
+      const btn = document.getElementById("generateBtn");
+      btn.disabled = true;
+      btn.textContent = "Generating...";
+      setTimeout(() => {
+        const data = findBestMatch(input);
+        render(input, data);
+        btn.disabled = false;
+        btn.textContent = "Generate →";
+      }, 700);
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", generate);
+    document.getElementById("vibeInput").addEventListener("keydown", e => {
+      if (e.key === "Enter") generate();
+    });
+  </script>
+</body>
+</html>
